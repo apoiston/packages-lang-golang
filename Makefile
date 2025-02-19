@@ -101,9 +101,9 @@ BOOTSTRAP_1_20_HASH:=1aef321a0e3e38b7e91d2d7eb64040666cabdcc77d383de3c9522d0d69b
 
 BOOTSTRAP_1_20_BUILD_DIR:=$(HOST_BUILD_DIR)/.go_bootstrap_1.20
 
-BOOTSTRAP_1_22_SOURCE:=go1.22.12.src.tar.gz
+BOOTSTRAP_1_22_SOURCE:=go1.22.6.src.tar.gz
 BOOTSTRAP_1_22_SOURCE_URL:=$(GO_SOURCE_URLS)
-BOOTSTRAP_1_22_HASH:=012a7e1f37f362c0918c1dfa3334458ac2da1628c4b9cf4d9ca02db986e17d71
+BOOTSTRAP_1_22_HASH:=9e48d99d519882579917d8189c17e98c373ce25abaebb98772e2927088992a51
 
 BOOTSTRAP_1_22_BUILD_DIR:=$(HOST_BUILD_DIR)/.go_bootstrap_1.22
 
@@ -180,6 +180,7 @@ endef
 define Package/golang-src
 $(call Package/golang/Default)
   TITLE+= (source files)
+  DEPENDS+= +libstdcpp +libtiff
 endef
 
 define Package/golang-src/description
@@ -245,6 +246,7 @@ endef
 Hooks/HostPrepare/Post+=Bootstrap-1.20/Prepare
 
 $(eval $(call GoCompiler/AddProfile,Bootstrap-1.20,$(BOOTSTRAP_1_20_BUILD_DIR),,bootstrap-1.20,$(GO_HOST_OS_ARCH)))
+
 
 # Bootstrap 1.22
 
