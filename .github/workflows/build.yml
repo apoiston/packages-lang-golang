@@ -1,0 +1,91 @@
+name: build
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 22 * * *"
+
+jobs:
+  current:
+    runs-on: ubuntu-latest
+    outputs:
+      pkg_hash: ${{ steps.current.outputs.pkg_hash }}
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+        with:
+          repository: apoiston/packages-lang-golang
+          ref: main
+          path: packages-lang-golang
+
+      - name: current info
+        id: current
+        run: |
+          go_version_major_minor=$(grep -E "^GO_VERSION_MAJOR_MINOR:=" packages-lang-golang/Makefile | cut -d '=' -f2 | xargs)
+          go_version_patch=$(grep -E "^GO_VERSION_PATCH:=" packages-lang-golang/Makefile | cut -d '=' -f2 | xargs)
+          pkg_hash=$(grep -E "^PKG_HASH:=" packages-lang-golang/Makefile | cut -d '=' -f2 | xargs)
+          pkg_release=$(grep -E "^PKG_RELEASE:=" packages-lang-golang/Makefile | cut -d '=' -f2 | xargs)
+
+          echo "GO_VERSION_MAJOR_MINOR: $go_version_major_minor"
+          echo "GO_VERSION_PATCH: $go_version_patch"
+          echo "PKG_HASH: $pkg_hash"
+          echo "PKG_RELEASE: $pkg_release"
+
+          echo "pkg_hash=${pkg_hash}" >> $GITHUB_OUTPUT
+
+  latest:
+    runs-on: ubuntu-latest
+    outputs:
+      latest_go_version_major_minor: ${{ steps.latest.outputs.latest_go_version_major_minor }}
+      latest_go_version_patch: ${{ steps.latest.outputs.latest_go_version_patch }}
+      latest_pkg_hash: ${{ steps.latest.outputs.latest_pkg_hash }}
+
+    steps:
+      - name: latest info
+        id: latest
+        run: |
+          latest_go_version=$(curl -s https://go.dev/VERSION?m=text | head -n1 | sed 's/go//')
+          latest_go_version_major_minor=$(echo "$latest_go_version" | awk -F. '{print $1"."$2}')
+          latest_go_version_patch=$(echo "$latest_go_version" | awk -F. '{print $3}')
+          tarball_url="https://go.dev/dl/go${latest_go_version}.src.tar.gz"
+          latest_pkg_hash=$(curl -sL "$tarball_url" | sha256sum | awk '{print $1}')
+
+          echo "Latest GO_VERSION_MAJOR_MINOR: $latest_go_version_major_minor"
+          echo "Latest GO_VERSION_PATCH: $latest_go_version_patch"
+          echo "Latest PKG_HASH: $latest_pkg_hash"
+
+          echo "latest_go_version_major_minor=${latest_go_version_major_minor}" >> $GITHUB_OUTPUT
+          echo "latest_go_version_patch=${latest_go_version_patch}" >> $GITHUB_OUTPUT
+          echo "latest_pkg_hash=${latest_pkg_hash}" >> $GITHUB_OUTPUT
+
+  build:
+    needs:
+      - current
+      - latest
+    if: ${{ needs.current.outputs.pkg_hash != needs.latest.outputs.latest_pkg_hash }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+        with:
+          repository: apoiston/packages-lang-golang
+          ref: main
+          path: packages-lang-golang
+
+      - name: build
+        run: |
+          sed -i "s/^GO_VERSION_MAJOR_MINOR:=.*/GO_VERSION_MAJOR_MINOR:=${{ needs.latest.outputs.latest_go_version_major_minor }}/" packages-lang-golang/Makefile
+          sed -i "s/^GO_VERSION_PATCH:=.*/GO_VERSION_PATCH:=${{ needs.latest.outputs.latest_go_version_patch }}/" packages-lang-golang/Makefile
+          sed -i "s/^PKG_HASH:=.*/PKG_HASH:=${{ needs.latest.outputs.latest_pkg_hash }}/" packages-lang-golang/Makefile
+          sed -i "s/^PKG_RELEASE:=.*/PKG_RELEASE:=1/" packages-lang-golang/Makefile
+
+      - name: commit
+        working-directory: packages-lang-golang
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add Makefile
+          git commit -m "golang: bump to ${{ needs.latest.outputs.latest_go_version_major_minor }}.${{ needs.latest.outputs.latest_go_version_patch }}"
+          git push origin main
