@@ -1,4 +1,4 @@
-name: build
+name: Build
 
 on:
   workflow_dispatch:
@@ -12,14 +12,14 @@ jobs:
       pkg_hash: ${{ steps.current.outputs.pkg_hash }}
 
     steps:
-      - name: checkout
-        uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v6
         with:
           repository: apoiston/packages-lang-golang
           ref: main
           path: packages-lang-golang
 
-      - name: current info
+      - name: Current info
         id: current
         run: |
           go_version_major_minor=$(grep -E "^GO_VERSION_MAJOR_MINOR:=" packages-lang-golang/Makefile | cut -d '=' -f2 | xargs)
@@ -42,7 +42,7 @@ jobs:
       latest_pkg_hash: ${{ steps.latest.outputs.latest_pkg_hash }}
 
     steps:
-      - name: latest info
+      - name: Latest info
         id: latest
         run: |
           latest_go_version=$(curl -s https://go.dev/VERSION?m=text | head -n1 | sed 's/go//')
@@ -67,21 +67,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: checkout
-        uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v6
         with:
           repository: apoiston/packages-lang-golang
           ref: main
           path: packages-lang-golang
 
-      - name: build
+      - name: Build
         run: |
           sed -i "s/^GO_VERSION_MAJOR_MINOR:=.*/GO_VERSION_MAJOR_MINOR:=${{ needs.latest.outputs.latest_go_version_major_minor }}/" packages-lang-golang/Makefile
           sed -i "s/^GO_VERSION_PATCH:=.*/GO_VERSION_PATCH:=${{ needs.latest.outputs.latest_go_version_patch }}/" packages-lang-golang/Makefile
           sed -i "s/^PKG_HASH:=.*/PKG_HASH:=${{ needs.latest.outputs.latest_pkg_hash }}/" packages-lang-golang/Makefile
           sed -i "s/^PKG_RELEASE:=.*/PKG_RELEASE:=1/" packages-lang-golang/Makefile
 
-      - name: commit
+      - name: Commit
         working-directory: packages-lang-golang
         run: |
           git config --global user.name "github-actions[bot]"
